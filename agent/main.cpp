@@ -25,7 +25,7 @@ int main() {
 
     std::string server_host = config["host"];
     std::string server_port = config["port"];
-    std::string agent_id = config.value("agent_id", "");
+    std::string agent_id = config.value("id", "");
 
     // Validate that host and port are not empty before constructing the Implant object
     if (!server_host.empty() && !server_port.empty()) {

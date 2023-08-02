@@ -1,25 +1,9 @@
-import json
-import os
-import certifi
-
-from flask import Flask
-from flask_restful import Api
-
-from api.results import ResultsResource
-from api.tasks import TasksResource
-from api.agents import AgentsResource
-
+import socket, asyncio
+import struct
 from database.db import init_db
+from enum import Enum
 
-app = Flask(__name__)
 init_db()
-api = Api(app)
-
-
-# test = certifi.where()
-# print(test)
-# "/Users/ianmatsumoto/Desktop/c2/env/lib/python3.10/site-packages/certifi/cacert.pem"
-
 
 '''
 server should have features to manage and control agents:
@@ -27,6 +11,8 @@ server should have features to manage and control agents:
     - agent authentication
     - track status
     - send and distribute tasks
+
+ping all active agents on startup
 
 should have task scheduling
 
@@ -42,13 +28,51 @@ enable logging and monitoring to track activities of agents
 some type of web interface
 '''
 
-api.add_resource(AgentsResource, "/agents", "/agents/<string:agent_id>")
-api.add_resource(TasksResource, "/tasks", "/tasks/<int:task_id>")
-api.add_resource(ResultsResource, "/results", "/results/<int:agent_id>")
+HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
+PORT = 3000  # Port to listen on (non-privileged ports are > 1023)
 
-@app.route("/")
-def index():
-    return "<p>Hello</p>"
+class MessageType(Enum):
+    NetworkData = 0
+    TaskResults = 1
+    RegisterAgent = 2
+    # Add more message types here as needed
 
-if __name__ == '__main__':
-    app.run(debug=True)
+def parseMessage(message_type, data):
+    if message_type == MessageType.NetworkData.value:
+        # Handle network data message
+        print("Received Network Data:", data)
+    elif message_type == MessageType.TaskResults.value:
+        # Handle task results message
+        print("Received Task Results:", data)
+    elif message_type == MessageType.RegisterAgent.value:
+        # Handle agent registration message
+        print("Received Agent Registration:", data)
+    # Add more cases for other message types as needed
+
+def main():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((HOST, PORT))
+        print("listening for connections")
+        s.listen()
+        conn, addr = s.accept()
+        with conn:
+            print(f"Connected by {addr}")
+            while True:
+                message_data = conn.recv(1024)
+                if not message_data:
+                    break
+                
+                # Assuming the first 4 bytes represent the MessageHeader
+                header_data = message_data[:8]
+                header = struct.unpack('II', header_data)  # Assuming 'II' is the correct format for MessageHeader
+                
+                # Extract the body part of the message (excluding the header)
+                body_data = message_data[4:]
+
+                print(f"Received Message Type: {header[0]}")
+                print(f"Received Body: {body_data}")
+                
+        s.close()
+
+if __name__ == "__main__":
+    main()

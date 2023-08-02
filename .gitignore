@@ -14,3 +14,10 @@ main
 
 config.json
 settings.json
+
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake 
+Makefile
+
+.vscode

@@ -4,11 +4,12 @@
 #include <string>
 
 #include "implant.h"
+#include "net_message.h"
 
 using json = nlohmann::json;
 
 int main() {
-    std::ifstream configFile("config.json");
+    std::ifstream configFile("../config.json");
 
     if (!configFile) {
         std::cerr << "Could not open config file." << std::endl;

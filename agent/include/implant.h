@@ -23,6 +23,9 @@ private:
     bool isRunning;
 
     asio::io_context context;
+
+    void handleResponse(std::string& data);
+
 public:
     Implant(std::string server_host, std::string server_port, std::string agent_id, bool isRunning = false);
 

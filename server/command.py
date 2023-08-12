@@ -39,7 +39,9 @@ async def handle_agent_connection(reader, writer):
 
     while True:
         try:
-            message_data = await reader.read(1024)
+            message_data = await reader.readuntil(b'\r')  # Read until a newline character
+            message_data = message_data.strip()  # Convert to string and remove newline
+
             if not message_data:
                 break
 

@@ -1,9 +1,12 @@
+import os
 import asyncio
-import socket
-import json
 from database.db import init_db
 from task_handler import handle_agent_response
+from aiohttp import web
+from dotenv import load_dotenv
+from agents import agent_writers
 
+load_dotenv()
 init_db()
 
 '''
@@ -29,9 +32,60 @@ enable logging and monitoring to track activities of agents
 some type of web interface
 '''
 
-HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
-PORT = 3000  # Port to listen on (non-privileged ports are > 1023)
+incoming_queue = asyncio.Queue()
+outgoing_queue = asyncio.Queue()
 
+# API LIST
+async def hello(request):
+    return web.Response(text="Hello, world")
+
+async def handle_proxy(request):
+    return web.Response(text="Handle proxy")
+
+async def ping(request):
+    print('request ping')
+    for agent_id in agent_writers:
+        writer = agent_writers[agent_id]
+        ping = "ping"
+        writer.write(ping.encode())
+        await writer.drain()
+
+    return web.Response(text='Ping')
+
+async def handle_task(request):
+    try:
+        data = await request.json()  # Assuming the payload contains JSON data
+        task = data.get('task')  # Extract the task from the JSON data
+        if task:
+            print(task)
+            # await outgoing_queue.put(task)
+            # return web.json_response({'status': 'Task enqueued'})
+        else:
+            return web.json_response({'error': 'Invalid request'}, status=400)
+    except Exception as e:
+        return web.json_response({'error': str(e)}, status=500)
+
+async def start_http_server():
+    try:
+        app = web.Application()
+
+        app.add_routes([web.get('/', hello),
+                web.get('/fetch', handle_proxy),
+                web.get('/ping', ping),
+                web.post('/enqueue_task', handle_task),])
+
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, os.getenv('HOST'), os.getenv('HTTP_PORT'))
+        await site.start()
+
+        print("HTTP server started and listening...")
+
+    except Exception as e:
+        print("An error occurred while starting the HTTP server:")
+        print(str(e))  # Print the error message for debugging
+
+# SOCKET CONNECTION
 async def handle_agent_connection(reader, writer):
     addr = writer.get_extra_info('peername')
     host = addr[0]
@@ -45,10 +99,12 @@ async def handle_agent_connection(reader, writer):
             if not message_data:
                 break
 
-            await handle_agent_response(message_data, host, port, writer)
+            await incoming_queue.put(message_data)  # Enqueue the incoming message
+
+            # Process the incoming message asynchronously
+            asyncio.create_task(handle_agent_response(message_data, host, port, writer))
 
         except asyncio.CancelledError:
-            print("BREAK")
             break
 
     print(f"Connection closed by {addr}")
@@ -56,12 +112,14 @@ async def handle_agent_connection(reader, writer):
     await writer.wait_closed()
 
 async def main():
-    server = await asyncio.start_server(
-        handle_agent_connection, HOST, PORT)
+    socket_server = await asyncio.start_server(
+        handle_agent_connection, os.getenv('HOST'), os.getenv('SOCK_PORT'))
+    
+     # Start the HTTP server concurrently
+    http_server_task = asyncio.create_task(start_http_server())
 
-    print("Listening for connections")
-    async with server:
-        await server.serve_forever()
+    # Run both servers concurrently using context managers
+    await asyncio.gather(socket_server.serve_forever(), http_server_task)
 
 if __name__ == "__main__":
     asyncio.run(main())

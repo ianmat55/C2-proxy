@@ -1,9 +1,8 @@
 import json
-import asyncio
 import uuid
-from mongoengine import connect, Document, StringField, IntField
 from database.models import Agent
 from utils.message_types import MessageType
+from agents import upsert_agent, remove_agent, get_agent
 
 # Define a function to handle agent responses
 async def handle_agent_response(response_data, host, port, writer):
@@ -26,10 +25,9 @@ async def handle_agent_response(response_data, host, port, writer):
             print("Received Task Results:", message_data)
         elif message_type == MessageType.RegisterAgent.value:
             # Handle agent registration message
-            print("Received agent registration")
-            request = handle_registration(agent_id, host, port, message_data)
+            request = handle_registration(agent_id, host, port, message_data, writer)
         elif message_type == MessageType.Ping.value:
-            print("PING")
+            # Handle ping
             request = handle_heartbeat(agent_id, message_data)
 
         writer.write(request.encode())
@@ -64,7 +62,7 @@ def handle_heartbeat(agent_id, data):
 
 # Check if agent is registered based on id
 # register agent in db if not registred.
-def handle_registration(agent_id, host, port, data):
+def handle_registration(agent_id, host, port, data, writer):
     response = {
         'header' : {
             'agent_id' : agent_id,
@@ -85,12 +83,14 @@ def handle_registration(agent_id, host, port, data):
 
             new_agent = Agent(**new_agent_data)
             #new_agent.save()
-            response['agent_id'] = str(uuid.uuid4())
+            response['header']['agent_id'] = str(uuid.uuid4())
             response["body"] = new_agent_data
             print("Agent successfully registered")
         except Exception as e:
             print("Error saving agent data:", e)
     else:
         response["body"] = agent
+
+    upsert_agent(response['header']['agent_id'], writer)
 
     return json.dumps(response)

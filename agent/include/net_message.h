@@ -2,7 +2,11 @@
 
 #include <iostream>
 #include <asio.hpp>
+#include <mutex>
+#include <deque>
 #include <nlohmann/json.hpp>
+
+#include "implant.h"
 
 namespace msg {
 
@@ -36,6 +40,64 @@ namespace msg {
         MessageHeader header{};
         nlohmann::json body;
     };
+
+    // class tsqueue {
+    // private:
+    //     std::mutex muxQueue;
+    //     std::deque<std::string> dq;
+                
+    // public:
+    //     virtual ~tsqueue() { clear(); }
+
+    //     const std::string& front() {
+    //         std::scoped_lock lock(muxQueue);
+    //         return dq.front();
+    //     }
+
+    //     const std::string& back() {
+    //         std::scoped_lock lock(muxQueue);
+    //         return dq.back();
+    //     }
+
+    //     void push_back(const std::string& item) {
+    //         std::scoped_lock lock(muxQueue);
+    //         dq.emplace_back(std::move(item));
+    //     }
+
+    //     void push_front(const std::string& item) {
+    //         std::scoped_lock lock(muxQueue);
+    //         dq.emplace_front(std::move(item));
+    //     }
+
+    //     std::string pop_front() {
+    //         std::scoped_lock lock(muxQueue);
+    //         std::string item = std::move(dq.front());
+    //         dq.pop_front();
+    //         return item;
+    //     }
+
+    //     std::string pop_back() {
+    //         std::scoped_lock lock(muxQueue);
+    //         std::string item = std::move(dq.back());
+    //         dq.pop_back();
+    //         return item;
+    //     }
+
+    //     void clear() {
+    //         std::scoped_lock lock(muxQueue);
+    //         dq.clear();
+    //     }
+
+    //     bool empty() {
+    //         std::scoped_lock lock(muxQueue);
+    //         return dq.size() == 0;
+    //     }
+
+    //     int size() {
+    //        std::scoped_lock lock(muxQueue);
+    //        return dq.size(); 
+    //     }
+    // };
 
     // Function to serialize the Request struct to a JSON string
     inline std::string serializeRequest(const Request& request) {
@@ -72,8 +134,7 @@ namespace msg {
         return response;
     }
 
-    // TODO: Add lambda func param to decouple message handling and lib, just import here for now
-    inline void receiveResponse(asio::ip::tcp::socket& socket, asio::streambuf& buf) {
+    inline void receiveResponse(asio::ip::tcp::socket& socket, asio::streambuf& buf, std::deque<std::string>& response_queue) {
         asio::async_read(socket, buf, asio::transfer_at_least(1), [&](const asio::error_code& error, std::size_t bytes_transferred) {
             if (!error) {
                 // Get the data from the streambuf as a sequence of buffers
@@ -81,16 +142,21 @@ namespace msg {
 
                 // Convert the sequence of buffers to a string
                 std::string data(asio::buffers_begin(buffers), asio::buffers_end(buffers));
-                std::cout << "DATA: " << data << std::endl;
-
                 // Clear the buffer to prepare for the next read
                 buf.consume(bytes_transferred);
 
+                response_queue.push_back(data);
+
                 // Start a new read operation to receive the next message
-                receiveResponse(socket, buf);
+                receiveResponse(socket, buf, response_queue);
             } else {
                 std::cout << "Error in handle_read: " << error.message() << std::endl;
             }
         });
+
+        while (!response_queue.empty()) {
+            std::cout << response_queue.front() << "\n" << std::endl;
+            response_queue.pop_front();
+        }
     }
 }

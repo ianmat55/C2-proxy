@@ -1,10 +1,10 @@
 import os
 import asyncio
 from database.db import init_db
-from task_handler import handle_agent_response
+from response_handler import handle_agent_response
 from aiohttp import web
 from dotenv import load_dotenv
-from agents import agent_writers
+from agents import agent_writers, get_allAgents
 
 load_dotenv()
 init_db()
@@ -42,6 +42,12 @@ async def hello(request):
 async def handle_proxy(request):
     return web.Response(text="Handle proxy")
 
+def handle_get_agents(data):
+    agent_ids = get_allAgents()
+    print(agent_ids)
+    response_data = {"agent_ids": agent_ids}
+    return web.json_response(response_data) 
+
 async def ping(request):
     print('request ping')
     for agent_id in agent_writers:
@@ -68,8 +74,9 @@ async def handle_task(request):
 async def start_http_server():
     try:
         app = web.Application()
-
+        
         app.add_routes([web.get('/', hello),
+                web.get('/agents', handle_get_agents),
                 web.get('/fetch', handle_proxy),
                 web.get('/ping', ping),
                 web.post('/enqueue_task', handle_task),])
@@ -101,7 +108,7 @@ async def handle_agent_connection(reader, writer):
 
             await incoming_queue.put(message_data)  # Enqueue the incoming message
 
-            # Process the incoming message asynchronously
+            #TODO: replace message data with queued task
             asyncio.create_task(handle_agent_response(message_data, host, port, writer))
 
         except asyncio.CancelledError:

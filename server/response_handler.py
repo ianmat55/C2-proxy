@@ -2,7 +2,7 @@ import json
 import uuid
 from database.models import Agent
 from utils.message_types import MessageType
-from agents import upsert_agent, remove_agent, get_agent
+from agents import upsert_agent, remove_agent, get_agent, get_allAgents
 
 # Define a function to handle agent responses
 async def handle_agent_response(response_data, host, port, writer):
@@ -57,7 +57,6 @@ def handle_heartbeat(agent_id, data):
             'message' : 'pong'
         }
     }
-
     return json.dumps(response)
 
 # Check if agent is registered based on id

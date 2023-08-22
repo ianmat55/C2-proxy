@@ -14,6 +14,12 @@ def remove_agent(agent_id):
         if agent_id in agent_writers:
             del agent_writers[agent_id]
 
+def get_allAgents():
+    global agent_writers
+    with lock:
+        agent_ids = list(agent_writers.keys())
+        return agent_ids
+
 def get_agent(agent_id):
     global agent_writers
     with lock:

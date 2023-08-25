@@ -14,6 +14,7 @@ async def handle_agent_response(response_data, host, port, writer):
         message_type = response["header"]["type"]
         agent_id = response["header"]["id"]
         message_data = response["body"]
+        delim = "\r"
 
         request = ""
 
@@ -29,6 +30,8 @@ async def handle_agent_response(response_data, host, port, writer):
         elif message_type == MessageType.Ping.value:
             # Handle ping
             request = handle_heartbeat(agent_id, message_data)
+        
+        request += delim
 
         writer.write(request.encode())
         await writer.drain()
